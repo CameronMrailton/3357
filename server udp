@@ -1,0 +1,66 @@
+import binascii
+import random
+import socket
+import struct
+import sys
+import hashlib
+import time
+def Network_Delay():
+    if True and random.choice(
+            [0, 1, 0]) == 1:  # Set to False to disable Network Delay. Default is 33% packets are delayed
+        time.sleep(.01)
+        print("Packet Delayed")
+    else:
+        print("Packet Sent")
+def Network_Loss():
+    if True and random.choice(
+            [0, 1, 1, 0]) == 1:  # Set to False to disable Network Loss. Default is 50% packets are lost
+        print("Packet Lost")
+        return (1)
+    else:
+        return (0)
+def Packet_Checksum_Corrupter(packetdata):
+    if True and random.choice(
+            [0, 1, 0, 1]) == 1:  # # Set to False to disable Packet Corruption. Default is 50% packets are corrupt
+        return (b'Corrupt!')
+    else:
+        return (packetdata)
+UDP_IP = "127.0.0.1"
+UDP_PORT = 5005
+unpacker = struct.Struct('I I 8s 32s')
+#Create the socket and listen
+sock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM) # UDP
+sock.bind((UDP_IP, UDP_PORT))
+seq = 0
+while True:
+    # Receive Data
+    data, addr = sock.recvfrom(1024)  # buffer size is 1024 bytes
+    UDP_Packet = unpacker.unpack(data)
+    print("received from:", addr)
+    print("received message:", UDP_Packet)
+    # Create the Checksum for comparison
+    values = (UDP_Packet[0], UDP_Packet[1], UDP_Packet[2])
+    packer = struct.Struct('I I 8s')
+    packed_data = packer.pack(*values)
+    chksum = bytes(hashlib.md5(packed_data).hexdigest(), encoding="UTF-8")
+    #network Loss
+    #isLoss = Network_Loss()
+    #if isLoss():
+    #    continue
+    #network delay
+    #Network_Delay()
+    #network corrupter
+    #Packet_Checksum_Corrupter(packed_data)
+    # Compare Checksums to test for corrupt data
+    if UDP_Packet[3] == chksum:
+        print('CheckSums Match, Packet OK')
+        if UDP_Packet[1] == seq:
+            values = (1, seq, chksum)
+            UDP_Packet_Data = struct.Struct('I I 32s')
+            UDP_Packet = UDP_Packet_Data.pack(*values)
+            sock.sendto(UDP_Packet, (UDP_IP, UDP_PORT))
+            print("Packet sent:", UDP_Packet)
+            seq = 1 - seq
+    else:
+        print('Checksums Do Not Match, Packet Corrupt')
+        continue
